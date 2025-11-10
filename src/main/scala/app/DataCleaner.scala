@@ -18,7 +18,6 @@ object DataCleaner extends App {
         printHelp()
         System.exit(1)
     }
-    println(s"${logPrefix}Arguments: ${args.mkString(", ")}, length: ${args.length}")
 
     // No argument validation is done here!
     val dataPath: String = args(0)
