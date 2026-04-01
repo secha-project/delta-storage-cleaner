@@ -261,3 +261,4 @@ spark-warehouse/
 data/*
 output/*
 .vscode/settings.json
+.env
