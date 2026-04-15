@@ -63,17 +63,26 @@ object DataCleaner extends App {
         println(s"${logPrefix}  - WARNING: do not run the cleaner if the data is still being written to the table")
     }
 
-    val spark: SparkSession = SparkSession
-        .builder()
-        .config("spark.sql.catalog.unity.uri", ucUrl)
-        .config("spark.sql.catalog.unity.token", ucToken)
-        .config("spark.sql.defaultCatalog", ucCatalog)
-        .config("spark.api.mode", "connect")
-        .remote(sparkUrl)
-        .getOrCreate()
+    val spark: SparkSession = try {
+        SparkSession
+            .builder()
+            .config("spark.sql.catalog.unity.uri", ucUrl)
+            .config("spark.sql.catalog.unity.token", ucToken)
+            .config("spark.sql.defaultCatalog", ucCatalog)
+            .config("spark.api.mode", "connect")
+            .remote(sparkUrl)
+            .getOrCreate()
+    }
+    catch {
+        case error: Exception =>
+            println(s"${logPrefix}Error creating Spark session: ${error.getMessage}")
+            error.printStackTrace()
+            throw error
+    }
 
     try {
         mainSparkLogic()
+        spark.stop()
     }
     catch {
         case error: Exception =>
@@ -148,7 +157,15 @@ object DataCleaner extends App {
         }
 
         val fullTableName: String = s"${schemaName}.${tableName}"
-        val statsBefore: TableStorageStats = getTableStorageStats(schemaName, tableName)
+        val statsBefore: TableStorageStats = try {
+             getTableStorageStats(schemaName, tableName)
+        }
+        catch {
+            case error: Exception =>
+                println(s"${logPrefix}Error retrieving table storage stats: ${error.getMessage}")
+                error.printStackTrace()
+                TableStorageStats("", 0L, 0.0)
+        }
         if (statsBefore.location.isEmpty) {
             println(s"${logPrefix}Error: Could not get data location for ${schemaName}.${tableName}")
             spark.stop()
@@ -162,7 +179,8 @@ object DataCleaner extends App {
         try {
             println(s"${logPrefix}Running OPTIMIZE to compact data...")
             spark.sql(s"OPTIMIZE ${fullTableName} ZORDER BY (${orderColumns.mkString(",")})")
-        } catch {
+        }
+        catch {
             case _: ParseException =>
                 println(s"${logPrefix}OPTIMIZE not supported by this Spark/Delta runtime. Falling back to rewrite-based compaction.")
                 rewriteTableForCompaction(fullTableName, statsBefore, orderColumns)
@@ -177,8 +195,5 @@ object DataCleaner extends App {
         val statsAfter: TableStorageStats = getTableStorageStats(schemaName, tableName)
         println(s"${logPrefix}After optimization and vacuum:")
         printInfo(rowCount, statsAfter)
-
-
-        spark.stop()
     }
 }
