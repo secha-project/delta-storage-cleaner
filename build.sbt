@@ -1,5 +1,5 @@
 name := "data-cleaner"
-version := "1.1.0"
+version := "1.1.1"
 scalaVersion := "2.13.18"
 
 val MainClass: String = "app.DataCleaner"

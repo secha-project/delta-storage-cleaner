@@ -175,6 +175,8 @@ object DataCleaner extends App {
             System.exit(1)
         }
 
+        println(s"${logPrefix}Cleaning table ${fullTableName} that has storage location ${statsBefore.location}")
+        println(logPrefix)
         println(s"${logPrefix}Before cleaning:")
         printInfo(spark.table(fullTableName).count(), statsBefore)
 
@@ -188,7 +190,7 @@ object DataCleaner extends App {
                 } else {
                     ""
                 }
-            spark.sql(s"OPTIMIZE ${fullTableName}$zOrderClause")
+            spark.sql(s"OPTIMIZE ${fullTableName}${zOrderClause}")
         }
         catch {
             case _: ParseException =>
