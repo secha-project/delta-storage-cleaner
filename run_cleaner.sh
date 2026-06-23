@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# Check if SPARK_HOME is set, otherwise set a default path
-if [ -z "${SPARK_HOME}" ]
-then
-    SPARK_HOME=/opt/spark-3.5.3
-fi
-
 LOG_FILE_CURRENT=$(pwd)/data-cleaner-output.log
 LOG_FILE_HISTORY=$(pwd)/data-cleaner-history.log
 LOG_IDENTIFIER="DataCleaner: "
@@ -24,11 +18,21 @@ then
     bash compile_cleaner.sh
 fi
 
+# export environment variables from .env file
+if [ ! -f .env ]; then
+    echo "Missing .env file. Create one from .env.template before running." 1>&2
+    exit 1
+fi
+set -a
+source .env
+set +a
+
+# Required by Arrow when running on Java 17+ (used by Spark Connect client).
+JAVA_OPENS="--add-opens=java.base/java.nio=ALL-UNNAMED"
+JAVA_RUN_OPTS="${JAVA_OPENS} ${JAVA_RUN_OPTS}"
+
 # Run the Spark job
-${SPARK_HOME}/bin/spark-submit \
-    --class ${MAIN_CLASS} \
-    --master local \
-    ${COMPILE_TARGET} "$@" > ${LOG_FILE_CURRENT} 2>&1
+java ${JAVA_RUN_OPTS} -jar ${COMPILE_TARGET} "$@" > ${LOG_FILE_CURRENT} 2>&1
 RETURN_CODE=$?
 
 # Append current log to history and print relevant lines to console
