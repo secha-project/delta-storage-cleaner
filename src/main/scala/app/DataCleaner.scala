@@ -200,8 +200,8 @@ object DataCleaner extends App {
         }
 
         // Run vacuum operation to remove all unnecessary data files.
-        println(s"${logPrefix}Running VACUUM to remove old unnecessary data files...")
-        spark.sql(s"VACUUM ${fullTableName} RETAIN 0 HOURS")
+        println(s"${logPrefix}Running VACUUM to remove old unnecessary data (older than 2 hours)...")
+        spark.sql(s"VACUUM ${fullTableName} RETAIN 2 HOURS")
 
         // Check the table size again from scratch.
         val rowCount: Long = spark.table(fullTableName).count()
