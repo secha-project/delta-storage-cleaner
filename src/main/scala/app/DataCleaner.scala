@@ -92,6 +92,7 @@ object DataCleaner extends App {
             println(s"${logPrefix}Error during cleaning process: ${error.getMessage}")
             error.printStackTrace()
             spark.stop()
+            throw error
     }
 
     def mainSparkLogic(): Unit = {
