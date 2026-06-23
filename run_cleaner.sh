@@ -19,6 +19,10 @@ then
 fi
 
 # export environment variables from .env file
+if [ ! -f .env ]; then
+    echo "Missing .env file. Create one from .env.template before running." 1>&2
+    exit 1
+fi
 set -a
 source .env
 set +a

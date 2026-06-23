@@ -22,9 +22,12 @@ object DataCleaner extends App {
     // NOTE: no checking is done for the user input
     val schemaName: String = args(0)
     val tableName: String = args(1)
-    val orderColumns: Seq[String] = args(2).split(",").toIndexedSeq
+    val orderColumns: Seq[String] = args(2).split(",").iterator.map(_.trim).filter(_.nonEmpty).toIndexedSeq
     val maxFileSize: Int = args(3).toInt
-
+    if (maxFileSize <= 0) {
+        println(s"${logPrefix}Error: <max-file-size> must be a positive integer (MB).")
+        System.exit(1)
+    }
 
     // NOTE: only checks for presence of environment variables, not their validity
     val sparkUrl: String = System.getenv("SPARK_URL")
@@ -54,7 +57,7 @@ object DataCleaner extends App {
         println(s"${logPrefix}  <order-columns>: a comma separated list of column names that are used to order the data")
         println(s"${logPrefix}  <max-file-size>: the maximum size of each parquet file in MB")
         println(logPrefix)
-        println(s"${logPrefix}The following environmental variables are required:")
+        println(s"${logPrefix}The following environment variables are required:")
         println(s"${logPrefix}- SPARK_URL : URL for Spark Connect server (e.g. 'sc://127.0.0.1:15002')")
         println(s"${logPrefix}- UC_URL: URL for Unity Catalog server (e.g. 'http://127.0.0.1:8080')")
         println(s"${logPrefix}- UC_TOKEN : Access token for Unity Catalog")
@@ -92,7 +95,7 @@ object DataCleaner extends App {
     }
 
     def mainSparkLogic(): Unit = {
-        spark.conf.set("spark.databricks.delta.optimize.maxFileSize", (maxFileSize.toDouble * 1024 * 1024).toInt)
+        spark.conf.set("spark.databricks.delta.optimize.maxFileSize", maxFileSize.toLong * 1024L * 1024L)
         spark.conf.set("spark.sql.debug.maxToStringFields", 1000)
         spark.conf.set("spark.databricks.delta.retentionDurationCheck.enabled", false)
 
@@ -102,7 +105,7 @@ object DataCleaner extends App {
         def getTableStorageStats(schema: String, table: String): TableStorageStats = {
             // Query table metadata via Spark SQL so it works in Spark Connect mode.
             val detail = spark
-                .sql(s"DESCRIBE DETAIL ${schema}.${table}")
+                .sql(s"DESCRIBE DETAIL `${schema.replace("`", "``")}`.`${table.replace("`", "``")}`")
                 .collect()
                 .headOption
 
@@ -156,7 +159,7 @@ object DataCleaner extends App {
             println(s"${logPrefix}Fallback compaction finished using repartition(${targetFiles}) for ${fullTableName}")
         }
 
-        val fullTableName: String = s"${schemaName}.${tableName}"
+        val fullTableName: String = s"`${schemaName.replace("`", "``")}`.`${tableName.replace("`", "``")}`"
         val statsBefore: TableStorageStats = try {
              getTableStorageStats(schemaName, tableName)
         }
@@ -178,7 +181,14 @@ object DataCleaner extends App {
         // Use SQL OPTIMIZE when available; otherwise fall back to a rewrite-based compaction.
         try {
             println(s"${logPrefix}Running OPTIMIZE to compact data...")
-            spark.sql(s"OPTIMIZE ${fullTableName} ZORDER BY (${orderColumns.mkString(",")})")
+            val zOrderClause =
+                if (orderColumns.nonEmpty) {
+                    val cols = orderColumns.map(c => s"`${c.replace("`", "``")}`").mkString(",")
+                    s" ZORDER BY ($cols)"
+                } else {
+                    ""
+                }
+            spark.sql(s"OPTIMIZE ${fullTableName}$zOrderClause")
         }
         catch {
             case _: ParseException =>

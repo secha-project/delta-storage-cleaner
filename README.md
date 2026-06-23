@@ -17,4 +17,4 @@ Example:
 ./run_cleaner.sh data_source table_name timestamp 100
 ```
 
-Optimizes the delta table stored in the Unity catalogue at schema `data_source` and table name `table_name` based on the `timestamp` column and aims for a maximum file size of 100 MB.
+Optimizes the delta table stored in the Unity Catalog at schema `data_source` and table name `table_name` based on the `timestamp` column and aims for a maximum file size of 100 MB.
